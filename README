@@ -1,0 +1,4 @@
+Nested record field accessors for HList, inspired by AstraFIN's fields package: http://github.com/AstraFIN/fields
+
+See examples/simple.lhs
+
