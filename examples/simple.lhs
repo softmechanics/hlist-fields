@@ -16,14 +16,14 @@ Create a new record:
 
 > r1 = emptyRecord .# l1 =: 1
 
-Update fields:
+Lookup:
+
+> v1 = r1 # l1
+
+Update:
 
 > r2 = (l1 =: 2) r1
 > r3 = r2 .# l1 =: 3
-
-We can still lookup using (#) from HList.
-
-> v3 = r2 # l1
 
 Nested fields:
 
