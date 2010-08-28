@@ -11,8 +11,10 @@ module Data.HList.Field.Base (
   module Data.HList,
   Label(..),
   HLookup(..), 
+  HApplyAll(..),
   DotHash(..),
-  (=:), (=~),
+  DotHash'(..),
+  (=:), (=~), (.#), (#),
 
   TypeEq(..)
   ) where
@@ -25,14 +27,8 @@ import Data.HList.Label1 (Label(..))
 
 instance (TypeEq a b f, HBool f) => HEq a b f
 
+infixr 8 .#
 infixr 9 =:, =~
-{-
-(=:) :: (HUpdateAtHNat n (LVPair l v) cols cols'
-        ,HFind l ls n
-        ,RecordLabels cols ls
-        ) => l -> v -> Record cols -> Record cols'
-(=:) l v obj = hUpdateAtLabel l v obj
--}
 
 (=:) :: (AddOrUpdateLabel l v cols cols'
         ,HRLabelSet cols'
@@ -47,30 +43,71 @@ infixr 9 =:, =~
         ) => l -> (v -> v') -> Record cols -> Record cols'
 (=~) l f obj = hUpdateAtLabel l (f $ obj # l) obj
 
---newtype Label a = Label a deriving Show
+(.#) :: DotHash a b c => a -> b -> c
+(.#) = dotHash
 
-infixr 8 .#
+(#) :: HLookup a b c => a -> b -> c
+(#) = hLookup
+
 class DotHash a b c | a b -> c where
-  (.#) :: a -> b -> c
+  dotHash :: a -> b -> c
 
-instance a ~ b => DotHash (Record a) (Record b -> Record c) (Record c) where
-  rec .# f = f rec
+instance (IsTuple b f
+         ,DotHash' f a b c
+         ) => DotHash a b c where
+  dotHash a b = dotHash' (undefined::f) a b
+
+class DotHash' f a b c | f a b -> c where
+  dotHash' :: f -> a -> b -> c
+
+instance (Untuple fs fs'
+         ,HApplyAll fs' (Record r) (Record r')
+         ) => DotHash' HTrue (Record r) fs (Record r') where
+  dotHash' _ r fs = hApplyAll (untuple fs) r
+
+instance (HUpdateAtHNat n (LVPair (Label l) (Record inner')) out out'
+         ,HFind (Label l) ls n
+         ,RecordLabels out ls
+         ,HasField (Label l) out (Record inner)
+         ,Untuple fs fs'
+         ,HApplyAll fs' (Record inner) (Record inner')
+         ) => DotHash' HTrue (Label l) fs (Record out -> Record out') where
+  dotHash' _ l fs = \out -> let inner = out # l 
+                                inner' = hApplyAll (untuple fs) inner
+                            in hUpdateAtLabel l inner' out
+
+
+instance a ~ a' => DotHash' HFalse (Record a) (Record a' -> Record b) (Record b) where
+  dotHash' _ rec f = f rec
 
 instance (HUpdateAtHNat n (LVPair (Label l) (Record inner')) out out'
          ,HFind (Label l) ls n
          ,RecordLabels out ls
          ,HasField (Label l) (Record out) (Record inner)
-         ) => DotHash (Label l) (Record inner -> Record inner') (Record out -> Record out') where
-  l .# f = \out -> let inner = out # l 
-                   in hUpdateAtLabel l (f inner) out
+         ) => DotHash' HFalse (Label l) (Record inner -> Record inner') (Record out -> Record out') where
+  dotHash' _ l f = \out -> let inner = out # l 
+                           in hUpdateAtLabel l (f inner) out
+
+class HApplyAll fs r r' | fs r -> r' where
+  hApplyAll :: fs -> r -> r'
+
+instance HApplyAll HNil r r where
+  hApplyAll _ r = r
+
+instance (HApplyAll fs fsR fsR'
+         ,pR ~ fR
+         ,fR' ~ fsR
+         ,pR' ~ fsR'
+         ) =>  HApplyAll (HCons (fR -> fR') fs) pR pR' where
+  hApplyAll (HCons f fs) r = hApplyAll fs $ f r
 
 class HLookup a b c | a b -> c where
-  (#) :: a -> b -> c
+  hLookup :: a -> b -> c
 
 instance (IsTuple l f
          ,HLookup' f r l r'
          ) => HLookup r l r' where
-  (#) = hLookup' (undefined::f)
+  hLookup = hLookup' (undefined::f)
   
 class HLookup' isTup a b c | isTup a b -> c where
   hLookup' :: isTup -> a -> b -> c

@@ -39,5 +39,15 @@ Nested fields:
 > r8 = r7 .# l1 .# l1 .# l1 =~ (+1)
 > v8 = r8 # l1 # l1 # l1
 
-That's pretty much it!  
+Set/update multiple fields:
+
+> data L2 = L2
+> instance Show L2 where
+>   show _ = "L2"
+> l2 = Label L2
+
+> r9 = emptyRecord .# (l1 =: 1, l2 =: 2)
+> r10 = r9 .# (l1 =: "hello world", l2 =~ (+1))
+> r11 = emptyRecord .# l1 =: r10
+> r12 = r11 .# l1 .# (l1 =~ words, l2 =~ (+1))
 
