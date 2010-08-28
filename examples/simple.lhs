@@ -8,15 +8,15 @@ First, lets create a label:
 >   show _ = "L1"
 > l1 = Label L1
 
-Note the '_' in the definition of show for L1.  This definition doesn't 
-evalaute the run-time value of the argument, which is necessary since 
-field labels are always undefined.
+Note the '_' in the definition of show for L1.  This doesn't evalaute 
+the run-time value of the argument, which is necessary since field 
+labels are always undefined.
 
-Quick function to make us a new one-element record:
+Create a new record:
 
 > r1 = emptyRecord .# l1 =: 1
 
-Here we show two methods of updating fields.
+Update fields:
 
 > r2 = (l1 =: 2) r1
 > r3 = r2 .# l1 =: 3
@@ -25,7 +25,7 @@ We can still lookup using (#) from HList.
 
 > v3 = r2 # l1
 
-Here are some nested fields.
+Nested fields:
 
 > r4 = emptyRecord .# l1 =: (r3 .# l1 =: 4)
 > r5 = r4 .# l1 .# l1 =: 5
