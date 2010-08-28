@@ -1,0 +1,11 @@
+Name: hlist-field
+Version: 0.0
+Cabal-Version:    >= 1.2
+Build-Type: Simple
+
+Library
+  Build-Depends:  base, HList, haskell-macros, MissingH, 
+    haskell-src-exts, haskell-src-exts-qq, template-haskell,
+    hlist-tuple
+  Exposed-modules: Data.HList.Field
+
