@@ -5,88 +5,142 @@ import Data.Char
 import Language.Haskell.TH.Quote 
 import Language.Haskell.TH.Syntax 
 import Language.Haskell.TH
-import Data.HList.Field.Label
+import qualified Data.HList.Field.Label as L
 import Data.HList
 
-labels :: [String] -> Q [Dec]
-labels ls = liftM concat $ mapM label ls
+mkLabels :: [String] -> Q [Dec]
+mkLabels ls = liftM concat $ mapM mkLabel ls
 
-label :: String -> Q [Dec]
-label l = let lbl = labelE l
-          in sequence [valD (varP $ mkName l) (normalB lbl) []]
+mkLabel :: String -> Q [Dec]
+mkLabel l = let lbl = label l
+            in sequence [valD (varP $ mkName l) (normalB lbl) []]
   
-labelE :: String -> ExpQ
-labelE l = appE [| Data.HList.Field.Label.Label |] (strToExp l)
+label :: String -> ExpQ
+label l = appE [| L.Label |] $ strToExp l
 
 strToExp [] = [| HNil |]
-strToExp (x:xs) = 
-  infixE (Just x') [| HCons |] (Just xs')
-  where x' = charToExp x
-        xs' = strToExp xs
+strToExp (c:cs) = 
+  appE (appE [| HCons |] c') cs'
+  where c' = charToExp c
+        cs' = strToExp cs
 
-charToExp 'a' = [| a |]
-charToExp 'b' = [| Data.HList.Field.Label.b |]
-charToExp 'c' = [| Data.HList.Field.Label.c |]
-charToExp 'd' = [| Data.HList.Field.Label.d |]
-charToExp 'e' = [| Data.HList.Field.Label.e |]
-charToExp 'f' = [| Data.HList.Field.Label.f |]
-charToExp 'g' = [| Data.HList.Field.Label.g |]
-charToExp 'h' = [| Data.HList.Field.Label.h |]
-charToExp 'i' = [| Data.HList.Field.Label.i |]
-charToExp 'j' = [| Data.HList.Field.Label.j |]
-charToExp 'k' = [| Data.HList.Field.Label.k |]
-charToExp 'l' = [| Data.HList.Field.Label.l |]
-charToExp 'm' = [| Data.HList.Field.Label.m |]
-charToExp 'n' = [| Data.HList.Field.Label.n |]
-charToExp 'o' = [| Data.HList.Field.Label.o |]
-charToExp 'p' = [| Data.HList.Field.Label.p |]
-charToExp 'q' = [| Data.HList.Field.Label.q |]
-charToExp 'r' = [| Data.HList.Field.Label.r |]
-charToExp 's' = [| Data.HList.Field.Label.s |]
-charToExp 't' = [| Data.HList.Field.Label.t |]
-charToExp 'u' = [| Data.HList.Field.Label.u |]
-charToExp 'v' = [| Data.HList.Field.Label.v |]
-charToExp 'w' = [| Data.HList.Field.Label.w |]
-charToExp 'x' = [| Data.HList.Field.Label.x |]
-charToExp 'y' = [| Data.HList.Field.Label.y |]
-charToExp 'z' = [| Data.HList.Field.Label.z |]
+labelT l = appT [t| L.Label |] $ strToType l
 
-charToExp 'A' = [| Data.HList.Field.Label.A |]
-charToExp 'B' = [| Data.HList.Field.Label.B |]
-charToExp 'C' = [| Data.HList.Field.Label.C |]
-charToExp 'D' = [| Data.HList.Field.Label.D |]
-charToExp 'E' = [| Data.HList.Field.Label.E |]
-charToExp 'F' = [| Data.HList.Field.Label.F |]
-charToExp 'G' = [| Data.HList.Field.Label.G |]
-charToExp 'H' = [| Data.HList.Field.Label.H |]
-charToExp 'I' = [| Data.HList.Field.Label.I |]
-charToExp 'J' = [| Data.HList.Field.Label.J |]
-charToExp 'K' = [| Data.HList.Field.Label.K |]
-charToExp 'L' = [| Data.HList.Field.Label.L |]
-charToExp 'M' = [| Data.HList.Field.Label.M |]
-charToExp 'N' = [| Data.HList.Field.Label.N |]
-charToExp 'O' = [| Data.HList.Field.Label.O |]
-charToExp 'P' = [| Data.HList.Field.Label.P |]
-charToExp 'Q' = [| Data.HList.Field.Label.Q |]
-charToExp 'R' = [| Data.HList.Field.Label.R |]
-charToExp 'S' = [| Data.HList.Field.Label.S |]
-charToExp 'T' = [| Data.HList.Field.Label.T |]
-charToExp 'U' = [| Data.HList.Field.Label.U |]
-charToExp 'V' = [| Data.HList.Field.Label.V |]
-charToExp 'W' = [| Data.HList.Field.Label.W |]
-charToExp 'X' = [| Data.HList.Field.Label.X |]
-charToExp 'Y' = [| Data.HList.Field.Label.Y |]
-charToExp 'Z' = [| Data.HList.Field.Label.Z |]
+strToType [] = [t| HNil |]
+strToType (c:cs) = 
+  appT (appT [t| HCons |] c') cs'
+  where c' = charToType c
+        cs' = strToType cs
 
-charToExp '0' = [| Data.HList.Field.Label.D0 |]
-charToExp '1' = [| Data.HList.Field.Label.D1 |]
-charToExp '2' = [| Data.HList.Field.Label.D2 |]
-charToExp '3' = [| Data.HList.Field.Label.D3 |]
-charToExp '4' = [| Data.HList.Field.Label.D4 |]
-charToExp '5' = [| Data.HList.Field.Label.D5 |]
-charToExp '6' = [| Data.HList.Field.Label.D6 |]
-charToExp '7' = [| Data.HList.Field.Label.D7 |]
-charToExp '8' = [| Data.HList.Field.Label.D8 |]
-charToExp '9' = [| Data.HList.Field.Label.D9 |]
+charToType c | isLower c = appT [t| L.Lower |] (charToType $ toUpper c)
 
-charToExp '_' = [| Data.HList.Field.Label.Underscore |]
+charToType 'A' = [t| L.A |]
+charToType 'B' = [t| L.B |]
+charToType 'C' = [t| L.C |]
+charToType 'D' = [t| L.D |]
+charToType 'E' = [t| L.E |]
+charToType 'F' = [t| L.F |]
+charToType 'G' = [t| L.G |]
+charToType 'H' = [t| L.H |]
+charToType 'I' = [t| L.I |]
+charToType 'J' = [t| L.J |]
+charToType 'K' = [t| L.K |]
+charToType 'L' = [t| L.L |]
+charToType 'M' = [t| L.M |]
+charToType 'N' = [t| L.N |]
+charToType 'O' = [t| L.O |]
+charToType 'P' = [t| L.P |]
+charToType 'Q' = [t| L.Q |]
+charToType 'R' = [t| L.R |]
+charToType 'S' = [t| L.S |]
+charToType 'T' = [t| L.T |]
+charToType 'U' = [t| L.U |]
+charToType 'V' = [t| L.V |]
+charToType 'W' = [t| L.W |]
+charToType 'X' = [t| L.X |]
+charToType 'Y' = [t| L.Y |]
+charToType 'Z' = [t| L.Z |]
+
+charToType '0' = [t| L.D0 |]
+charToType '1' = [t| L.D1 |]
+charToType '2' = [t| L.D2 |]
+charToType '3' = [t| L.D3 |]
+charToType '4' = [t| L.D4 |]
+charToType '5' = [t| L.D5 |]
+charToType '6' = [t| L.D6 |]
+charToType '7' = [t| L.D7 |]
+charToType '8' = [t| L.D8 |]
+charToType '9' = [t| L.D9 |]
+
+charToType '_' = [t| L.Underscore |]
+
+charToExp c | isLower c = appE [| L.Lower |] (charToExp $ toUpper c)
+
+{-
+charToExp 'a' = [| L.a |]
+charToExp 'b' = [| L.b |]
+charToExp 'c' = [| L.c |]
+charToExp 'd' = [| L.d |]
+charToExp 'e' = [| L.e |]
+charToExp 'f' = [| L.f |]
+charToExp 'g' = [| L.g |]
+charToExp 'h' = [| L.h |]
+charToExp 'i' = [| L.i |]
+charToExp 'j' = [| L.j |]
+charToExp 'k' = [| L.k |]
+charToExp 'l' = [| L.l |]
+charToExp 'm' = [| L.m |]
+charToExp 'n' = [| L.n |]
+charToExp 'o' = [| L.o |]
+charToExp 'p' = [| L.p |]
+charToExp 'q' = [| L.q |]
+charToExp 'r' = [| L.r |]
+charToExp 's' = [| L.s |]
+charToExp 't' = [| L.t |]
+charToExp 'u' = [| L.u |]
+charToExp 'v' = [| L.v |]
+charToExp 'w' = [| L.w |]
+charToExp 'x' = [| L.x |]
+charToExp 'y' = [| L.y |]
+charToExp 'z' = [| L.z |]
+-}
+
+charToExp 'A' = [| L.A |]
+charToExp 'B' = [| L.B |]
+charToExp 'C' = [| L.C |]
+charToExp 'D' = [| L.D |]
+charToExp 'E' = [| L.E |]
+charToExp 'F' = [| L.F |]
+charToExp 'G' = [| L.G |]
+charToExp 'H' = [| L.H |]
+charToExp 'I' = [| L.I |]
+charToExp 'J' = [| L.J |]
+charToExp 'K' = [| L.K |]
+charToExp 'L' = [| L.L |]
+charToExp 'M' = [| L.M |]
+charToExp 'N' = [| L.N |]
+charToExp 'O' = [| L.O |]
+charToExp 'P' = [| L.P |]
+charToExp 'Q' = [| L.Q |]
+charToExp 'R' = [| L.R |]
+charToExp 'S' = [| L.S |]
+charToExp 'T' = [| L.T |]
+charToExp 'U' = [| L.U |]
+charToExp 'V' = [| L.V |]
+charToExp 'W' = [| L.W |]
+charToExp 'X' = [| L.X |]
+charToExp 'Y' = [| L.Y |]
+charToExp 'Z' = [| L.Z |]
+
+charToExp '0' = [| L.D0 |]
+charToExp '1' = [| L.D1 |]
+charToExp '2' = [| L.D2 |]
+charToExp '3' = [| L.D3 |]
+charToExp '4' = [| L.D4 |]
+charToExp '5' = [| L.D5 |]
+charToExp '6' = [| L.D6 |]
+charToExp '7' = [| L.D7 |]
+charToExp '8' = [| L.D8 |]
+charToExp '9' = [| L.D9 |]
+
+charToExp '_' = [| L.Underscore |]

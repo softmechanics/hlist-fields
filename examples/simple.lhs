@@ -6,13 +6,13 @@
 
 First, lets create some labels:
 
-> $(label "l1")
-> $(label "l2")
+> $(mkLabel "l1")
+> $(mkLabel "l2")
 
 Here are some alternate was to create labels:
 
-> $(labels ["l3", "l4"])
-> l5 = $(labelE "l5")
+> $(mkLabels ["l3", "l4"])
+> l5 = $(label "l5")
 
 Note that while label and labels can only be used at the top level to create module-scope labels, 
 labelE can be used in let bindings, etc.
@@ -24,7 +24,7 @@ Create a new record:
 Lookup:
 
 > v1 = r1 # l1
-> v1' = r1 # $(labelE "l1")
+> v1' = r1 # $(label "l1")
 
 Update:
 
