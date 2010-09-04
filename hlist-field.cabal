@@ -4,8 +4,8 @@ Cabal-Version:    >= 1.2
 Build-Type: Simple
 
 Library
-  Build-Depends:  base, HList, haskell-macros, MissingH, 
-    haskell-src-exts, haskell-src-exts-qq, template-haskell,
-    hlist-tuple
-  Exposed-modules: Data.HList.Field
+  Build-Depends:  base, HList, hlist-tuple, regex-posix, template-haskell
+                  
+  Exposed-modules: Data.HList.Field, Data.HList.Field.Base, Data.HList.Field.TH,
+                   Data.HList.Field.Label
 

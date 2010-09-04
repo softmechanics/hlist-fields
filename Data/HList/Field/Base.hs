@@ -8,9 +8,8 @@
            , UndecidableInstances #-}
 
 module Data.HList.Field.Base (
-  module Data.HList,
-  Label(..),
   HLookup(..), 
+  HLookup'(..),
   HApplyAll(..),
   DotHash(..),
   DotHash'(..),
@@ -23,13 +22,20 @@ import Data.HList.Record
 import Data.HList.Tuple
 import Data.HList hiding (TypeEq, (#))
 import Data.HList.TypeEqGeneric2
-import Data.HList.Label1 (Label(..))
+import Data.HList.Field.Label (Label(..))
 
 instance (TypeEq a b f, HBool f) => HEq a b f
 
-infixr 8 .#
-infixr 9 =:, =~
+infixr 7 .# 
+infixr 8 =:, =~
+infixl 9 #
 
+data EqualColon l r = EqualColon l r
+data EqualTilde l r = EqualTilde l r
+
+(=:) = EqualColon
+(=~) = EqualTilde
+{-
 (=:) :: (AddOrUpdateLabel l v cols cols'
         ,HRLabelSet cols'
         ) => l -> v -> Record cols -> Record cols'
@@ -42,6 +48,7 @@ infixr 9 =:, =~
         ,HLookup (Record cols) l v
         ) => l -> (v -> v') -> Record cols -> Record cols'
 (=~) l f obj = hUpdateAtLabel l (f $ obj # l) obj
+-}
 
 (.#) :: DotHash a b c => a -> b -> c
 (.#) = dotHash
@@ -77,16 +84,42 @@ instance (HUpdateAtHNat n (LVPair (Label l) (Record inner')) out out'
                             in hUpdateAtLabel l inner' out
 
 
-instance a ~ a' => DotHash' HFalse (Record a) (Record a' -> Record b) (Record b) where
-  dotHash' _ rec f = f rec
+instance (HApply f (Record fr) (Record fr')
+         ,r ~ fr
+         ,r' ~ fr'
+         ) => DotHash' HFalse (Record r) f (Record r') where
+  dotHash' _ rec f = hApply f rec
 
-instance (HUpdateAtHNat n (LVPair (Label l) (Record inner')) out out'
+
+instance (HUpdateAtHNat n (LVPair (Label l) inner') out out'
          ,HFind (Label l) ls n
          ,RecordLabels out ls
-         ,HasField (Label l) (Record out) (Record inner)
-         ) => DotHash' HFalse (Label l) (Record inner -> Record inner') (Record out -> Record out') where
+         ,HasField (Label l) out inner
+         ,HApply f fInner fInner'
+         ,inner ~ fInner
+         ,inner' ~ fInner'
+         ) => DotHash' HFalse (Label l) f (Record out -> Record out') where
   dotHash' _ l f = \out -> let inner = out # l 
-                           in hUpdateAtLabel l (f inner) out
+                           in hUpdateAtLabel l (hApply f inner) out
+
+class HApply f r r' | f r -> r' where
+  hApply :: f -> r -> r'
+
+instance (fr ~ r, fr' ~ r') => HApply (fr -> fr') r r' where
+  hApply f r = f r
+
+instance (AddOrUpdateLabel l v cols cols'
+         ,HRLabelSet cols'
+         ) => HApply (EqualColon l v) (Record cols) (Record cols') where
+  hApply (EqualColon l v) r = addOrUpdateLabel l v r
+
+instance (HUpdateAtHNat n (LVPair l v') cols cols'
+         ,HFind l ls n
+         ,RecordLabels cols ls
+         ,HasField l (Record cols) v
+         ,HLookup (Record cols) l v
+         ) => HApply (EqualTilde l (v -> v')) (Record cols) (Record cols') where
+  hApply (EqualTilde l f) r = hUpdateAtLabel l (f $ r # l) r
 
 class HApplyAll fs r r' | fs r -> r' where
   hApplyAll :: fs -> r -> r'
@@ -95,11 +128,12 @@ instance HApplyAll HNil r r where
   hApplyAll _ r = r
 
 instance (HApplyAll fs fsR fsR'
+         ,HApply f fR fR'
          ,pR ~ fR
          ,fR' ~ fsR
          ,pR' ~ fsR'
-         ) =>  HApplyAll (HCons (fR -> fR') fs) pR pR' where
-  hApplyAll (HCons f fs) r = hApplyAll fs $ f r
+         ) =>  HApplyAll (HCons f fs) pR pR' where
+  hApplyAll (HCons f fs) r = hApplyAll fs $ hApply f r
 
 class HLookup a b c | a b -> c where
   hLookup :: a -> b -> c
