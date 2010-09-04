@@ -5,7 +5,7 @@ import Data.Char
 import Language.Haskell.TH.Quote 
 import Language.Haskell.TH.Syntax 
 import Language.Haskell.TH
-import qualified Data.HList.Field.Label
+import Data.HList.Field.Label
 import Data.HList
 
 labels :: [String] -> Q [Dec]
@@ -24,7 +24,7 @@ strToExp (x:xs) =
   where x' = charToExp x
         xs' = strToExp xs
 
-charToExp 'a' = [| Data.HList.Field.Label.a |]
+charToExp 'a' = [| a |]
 charToExp 'b' = [| Data.HList.Field.Label.b |]
 charToExp 'c' = [| Data.HList.Field.Label.c |]
 charToExp 'd' = [| Data.HList.Field.Label.d |]
