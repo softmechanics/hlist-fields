@@ -16,21 +16,21 @@ mkLabel l = let lbl = label l
             in sequence [valD (varP $ mkName l) (normalB lbl) []]
   
 label :: String -> ExpQ
-label l = appE [| L.Label |] $ strToExp l
+label l = appE [| L.Label |] $ mkHListE l
 
-strToExp [] = [| HNil |]
-strToExp (c:cs) = 
+mkHListE [] = [| HNil |]
+mkHListE (c:cs) = 
   appE (appE [| HCons |] c') cs'
   where c' = charToExp c
-        cs' = strToExp cs
+        cs' = mkHListE cs
 
-labelT l = appT [t| L.Label |] $ strToType l
+labelT l = appT [t| L.Label |] $ mkHListT l
 
-strToType [] = [t| HNil |]
-strToType (c:cs) = 
+mkHListT [] = [t| HNil |]
+mkHListT (c:cs) = 
   appT (appT [t| HCons |] c') cs'
   where c' = charToType c
-        cs' = strToType cs
+        cs' = mkHListT cs
 
 charToType c | isLower c = appT [t| L.Lower |] (charToType $ toUpper c)
 
