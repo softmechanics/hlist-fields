@@ -1,4 +1,12 @@
 Nested record field accessors for HList, inspired by AstraFIN's fields package: http://github.com/AstraFIN/fields
 
+Features:
+  * Records are extensible.
+  * Easy get/set of nested records.
+  * Multiple record types can contain common field names.
+  * Field labels are type-level strings.  This ensures that any two labels with the same name can be used interchangably,
+    even if they were declared in different scopes.
+
+
 See examples/simple.lhs
 
