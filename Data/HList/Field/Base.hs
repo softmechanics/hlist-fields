@@ -5,314 +5,433 @@
            , FunctionalDependencies 
            , TypeFamilies
            , OverlappingInstances
-           , UndecidableInstances #-}
+           , UndecidableInstances 
+           , EmptyDataDecls
+           #-}
 
-module Data.HList.Field.Base (
-  HLookup(..), 
-  HLookup'(..),
-  HApplyAll(..),
-  DotHash(..),
-  DotHash'(..),
-  (=:), (=~), (.#), (#),
+module Data.HList.Field.Base where
 
-  HProjectByFields(..),
-  NestLabels(..),
-  TypeEq(..)
-  ) where
-
+import Data.HList hiding (TypeEq, (#), tuple)
 import Data.HList.Record
 import Data.HList.Tuple
-import Data.HList hiding (TypeEq, (#))
-import Data.HList.TypeEqGeneric2
-import Data.HList.Field.Label (Label(..))
 
-instance (TypeEq a b f, HBool f) => HEq a b f
+import Data.HList.Field.Label (Label(..), NestedLabel(..))
+import Data.HList.Field.Utils
 
-infixr 7 .# 
-infixr 8 =:, =~
-infixl 9 #
-
-data EqualColon l r = EqualColon l r
-data EqualTilde l r = EqualTilde l r
-
-(=:) = EqualColon
-(=~) = EqualTilde
-
-newtype NestLabels a = NestLabels a
 type EmptyRecord = Record HNil
 
-(.#) :: DotHash a b c => a -> b -> c
-(.#) = dotHash
+infixr 8 <#, #
+infixr 9 =:, =~
 
-(#) :: HLookup a b c => a -> b -> c
-(#) = hLookup
+data HFHashT r l = HFHashT r l
+data HFAssignT l r = HFAssignT l r
+data HFModifyT l r = HFModifyT l r
 
-class DotHash a b c | a b -> c where
-  dotHash :: a -> b -> c
+(=:) = HFAssignT
+(=~) = HFModifyT
 
+-- |# preserves depth of nested labels
+(#) :: (HFHash a b c) => a -> b -> c
+(#) = hfHash
+
+-- |<# extracts values (returns a tuple)
+(<#) :: (HFApplyAndProject r f t) => r -> f -> t
+(<#) = hfApplyAndProject
+
+--------------------------------------------------
+-- |HFHash -- implements (#)
+--------------------------------------------------
+class HFHash a b c | a b -> c where
+  hfHash :: a -> b -> c
+  
 instance (IsTuple b f
-         ,DotHash' f a b c
-         ) => DotHash a b c where
-  dotHash a b = dotHash' (undefined::f) a b
-
-class DotHash' f a b c | f a b -> c where
-  dotHash' :: f -> a -> b -> c
-
-instance (Untuple fs fs'
-         ,HApplyAll fs' (Record r) (Record r')
-         ) => DotHash' HTrue (Record r) fs (Record r') where
-  dotHash' _ r fs = hApplyAll (untuple fs) r
-
-instance (HUpdateAtHNat n (LVPair (Label l) (Record inner')) out out'
-         ,HFind (Label l) ls n
-         ,RecordLabels out ls
-         ,HasField (Label l) out (Record inner)
-         ,Untuple fs fs'
-         ,HApplyAll fs' (Record inner) (Record inner')
-         ) => DotHash' HTrue (Label l) fs (Record out -> Record out') where
-  dotHash' _ l fs = \out -> let inner = out # l 
-                                inner' = hApplyAll (untuple fs) inner
-                            in hUpdateAtLabel l inner' out
-
-
-instance (HApply f (Record fr) (Record fr')
-         ,r ~ fr
-         ,r' ~ fr'
-         ) => DotHash' HFalse (Record r) f (Record r') where
-  dotHash' _ rec f = hApply f rec
-
-
-instance (HUpdateAtHNat n (LVPair (Label l) inner') out out'
-         ,HFind (Label l) ls n
-         ,RecordLabels out ls
-         ,HasField (Label l) out inner
-         ,HApply f fInner fInner'
-         ,inner ~ fInner
-         ,inner' ~ fInner'
-         ) => DotHash' HFalse (Label l) f (Record out -> Record out') where
-  dotHash' _ l f = \out -> let inner = out # l 
-                           in hUpdateAtLabel l (hApply f inner) out
-
-class HApply f r r' | f r -> r' where
-  hApply :: f -> r -> r'
-
-instance (fr ~ r, fr' ~ r') => HApply (fr -> fr') r r' where
-  hApply f r = f r
-
-instance (AddOrUpdateLabel l v cols cols'
-         ) => HApply (EqualColon l v) cols cols' where
-  hApply (EqualColon l v) r = addOrUpdateLabel l v r
-
-instance (HUpdateAtHNat n (LVPair l v') cols cols'
-         ,HFind l ls n
-         ,RecordLabels cols ls
-         ,HasField l (Record cols) v
-         ,HLookup (Record cols) l v
-         ) => HApply (EqualTilde l (v -> v')) (Record cols) (Record cols') where
-  hApply (EqualTilde l f) r = hUpdateAtLabel l (f $ r # l) r
-
-class HApplyAll fs r r' | fs r -> r' where
-  hApplyAll :: fs -> r -> r'
-
-instance HApplyAll HNil r r where
-  hApplyAll _ r = r
-
-instance (HApplyAll fs fsR fsR'
-         ,HApply f fR fR'
-         ,pR ~ fsR
-         ,fsR' ~ fR
-         ,fR' ~ pR'
-         ) =>  HApplyAll (HCons f fs) pR pR' where
-  hApplyAll (HCons f fs) r = hApply f $ hApplyAll fs r
-
-class HLookup a b c | a b -> c where
-  hLookup :: a -> b -> c
-
-instance (IsTuple l f
-         ,HLookup' f r l r'
-         ) => HLookup r l r' where
-  hLookup = hLookup' (undefined::f)
+         ,HFHash' f a b c
+         ) => HFHash a b c where
+  hfHash = hfHash' (undefined::f)
   
-class HLookup' isTup a b c | isTup a b -> c where
-  hLookup' :: isTup -> a -> b -> c
+class HFHash' isTup a b c | isTup a b -> c where  
+  hfHash' :: isTup -> a -> b -> c
 
-instance (HasField (Label l) (Record r) v
-         ) => HLookup' HFalse (Record r) (Label l) v where
-  hLookup' _ r l = hLookupByLabel l r
+instance (PrependLabel (Label l) b c
+         ) => HFHash' HFalse (Label l) b c where
+  hfHash' _ = prependLabel
+
+instance (Untuple t tl
+         ,PrependLabel (Label l) tl tl' 
+         ,Tuple tl' t'
+         ) => HFHash' HTrue (Label l) t t' where
+  hfHash' _ l t = tuple $ prependLabel l $ untuple t
+
+-- |Record # ...
+instance (HFApply f (Record r) r' 
+         ) => HFHash' isTup (Record r) f r' where
+  hfHash' _ r f = hfApply f r
   
-instance (HProjectByFields (HCons l ls) (Record r) (Record r')
-         ) => HLookup' HFalse (Record r) (HCons l ls) (Record r') where
-  hLookup' _ r ls = hProjectByFields ls r
+-- |... =: Record # ...
+-- Handles setting fields by another hfield record construction.
+-- Corrects the syntax error caused by the precedence rules
+instance (HFApply f (Record r) v
+         ) => HFHash' isTup (HFAssignT l1 (Record r)) f (HFAssignT l1 v) where
+  hfHash' _ (HFAssignT l1 r) f = HFAssignT l1 $ hfApply f r
 
-instance HLookup' HFalse (Label l1) (Label l2) (NestLabels (HCons (Label l1) (HCons (Label l2) HNil))) where
-  hLookup' _ l1 l2 = NestLabels $ l1 .*. l2 .*. HNil
+--------------------------------------------------
+-- |Prepend Label
+--------------------------------------------------
+class PrependLabel a b c | a b -> c where
+  prependLabel :: a -> b -> c
   
-instance (IsTuple l f
-         ,HLookup' f (Record r) l v
-         ) => HLookup' HFalse (Record r) (NestLabels (HCons l HNil)) v where
-  hLookup' _ r (NestLabels (HCons l HNil)) = hLookup' (undefined::f) r l
+-- |HLists base case  
+instance PrependLabel l HNil HNil where
+  prependLabel _ _ = HNil
   
-instance (IsTuple (NestLabels (HCons l' ls)) f
-         ,HLookup' f (Record out) l (Record inner)
-         ,IsTuple l f'
-         ,HLookup' f' (Record inner) (NestLabels (HCons l' ls)) v
-         ) => HLookup' HFalse (Record out) (NestLabels (HCons l (HCons l' ls))) v where
-  hLookup' _ r (NestLabels (HCons l ls))
-    = let inner = hLookup' (undefined::f) r l
-      in hLookup' (undefined::f') inner (NestLabels ls)
+-- |HList recusive case
+instance (PrependLabel (Label l) a a'
+         ,PrependLabel (Label l) as as'
+         ) => PrependLabel (Label l) (HCons a as) (HCons a' as') where
+  prependLabel l (HCons a as) = HCons (prependLabel l a) (prependLabel l as)
 
-instance (Untuple t hl
-         ,HLookup (Record r) hl r'
-         ) => HLookup' HTrue (Record r) t r' where
-  hLookup' _ r t = r # (untuple t :: hl)
+-- |Label
+instance PrependLabel (Label a) (Label b) (NestedLabel (HCons (Label a) (HCons (Label b) HNil))) where
+  prependLabel a b = NestedLabel $ a .*. b .*. HNil
+  
+-- |NestedLabel  
+instance (HExtend (Label l) ls ls'
+         ) => PrependLabel (Label l) (NestedLabel ls) (NestedLabel ls') where
+  prependLabel l (NestedLabel ls) = NestedLabel $ l .*. ls
+  
+-- |HFAssignT
+instance (HFHash (Label l1) l2 l3
+         ) => PrependLabel (Label l1) (HFAssignT l2 v) (HFAssignT l3 v) where
+  prependLabel l1 (HFAssignT l2 v) = HFAssignT (l1 # l2) v
 
--- If label does not occur, add to front
-class AddOrUpdateLabel l v r r' | l v r -> r' where
-  addOrUpdateLabel :: l -> v -> r -> r'
+-- |HFModifyT
+instance (HFHash (Label l1) l2 l3
+         ) => PrependLabel (Label l1) (HFModifyT l2 v) (HFModifyT l3 v) where
+  prependLabel l1 (HFModifyT l2 v) = HFModifyT (l1 # l2) v
 
-instance (RecordLabels r ls
-         ,OccursP l ls occ
-         ,AddOrUpdateLabel' occ l v r r'
-         ) => AddOrUpdateLabel l v r r' where
-  addOrUpdateLabel = addOrUpdateLabel' (undefined::occ)
+--------------------------------------------------
+-- |Dispatch by tag
+--------------------------------------------------
+class HFApply f r v | f r -> v where
+  hfApply :: f -> r -> v
+  
+instance (IsTuple f tupP
+         ,HFApply' tupP f r v
+         ) => HFApply f r v where
+  hfApply = hfApply' (undefined::tupP)
+
+class HFApply' tupP f r v | tupP f r -> v where
+  hfApply' :: tupP -> f -> r -> v
+  
+-- |Tuple
+instance (Untuple fs fs'  
+         ,HFApplyAll fs' r vs
+         ) => HFApply' HTrue fs r vs where
+  hfApply' _ fs r = hfApplyAll (untuple fs) r
+
+-- |Label
+instance (HFLookup (Label l) r v
+         ) => HFApply' HFalse (Label l) r v where
+  hfApply' _ l r = hfLookup l r  
+  
+-- |NestedLabel  
+instance (HFLookup (NestedLabel ls) r v 
+         ) => HFApply' HFalse (NestedLabel ls) r v where
+  hfApply' _ ls r = hfLookup ls r
+  
+-- |Assign
+instance (HFAssign l v r r' 
+         ) => HFApply' HFalse (HFAssignT l v) r r' where
+  hfApply' _ (HFAssignT l v) r = hfAssign l v r
+  
+-- |Modify
+instance (HFModify l v v' r r' 
+         ) => HFApply' HFalse (HFModifyT l (v -> v')) r r' where
+  hfApply' _ (HFModifyT l f) r = hfModify l f r
+
+--------------------------------------------------
+-- |Apply multiple morphisms simultaneously
+--------------------------------------------------  
+class HFApplyAll fs r r' | fs r -> r' where
+  hfApplyAll :: fs -> r -> r'
+  
+-- |apply multiple base case
+instance HFApplyAll HNil r r where
+  hfApplyAll _ r = r
+  
+-- |Recursive case
+instance (HFApplyAll fs r r1
+         ,HFApplyAll f r1 r2
+         ) => HFApplyAll (HCons f fs) r r2 where
+  hfApplyAll (HCons f fs) r 
+    = let r1 = hfApplyAll fs r
+      in hfApplyAll f r1
          
-class AddOrUpdateLabel' occ l v r r' where
-  addOrUpdateLabel' :: occ -> l -> v -> r -> r'
+-- |Labels are no-op for ApplyAll  
+instance HFApplyAll (Label l) r r where
+  hfApplyAll _ r = r
   
-instance (UpdateLabel l v r r'
-         ) => AddOrUpdateLabel' HTrue l v r r' where
-  addOrUpdateLabel' _ = updateLabel
+-- |NestedLabels are no-op for ApplyAll
+instance HFApplyAll (NestedLabel l) r r where
+  hfApplyAll _ r = r
+         
+-- |Default is to delegate to hfApply                              
+instance (HFApply f r r'
+         ) => HFApplyAll f r r' where
+  hfApplyAll f r = hfApply f r
+
+--------------------------------------------------
+-- |Lookup
+--------------------------------------------------
+class HFLookup f r v | f r -> v where
+  hfLookup :: f -> r -> v
   
-instance (AddLabel l v r r'
-         ) => AddOrUpdateLabel' HFalse l v r r' where
-  addOrUpdateLabel' _ = addLabel
+-- |Lookup by Label
+instance (HasField (Label l) r v
+         ) => HFLookup (Label l) r v where
+  hfLookup l r = hLookupByLabel l r
+
+-- |Lookup by NestLabel base case
+instance HFLookup (NestedLabel HNil) v v where
+  hfLookup _ v = v
+
+-- |Lookup by NestLabel recursive case
+instance (HasField l outer inner
+         ,HFLookup (NestedLabel ls) inner v
+         ) => HFLookup (NestedLabel (HCons l ls)) outer v where
+  hfLookup (NestedLabel (HCons l ls)) outer
+    = hfLookup (NestedLabel ls) inner
+    where inner = hLookupByLabel l outer
+
   
-class AddLabel l v r r' | l v r -> r' where
-  addLabel :: l -> v -> r -> r'
+--------------------------------------------------
+-- |Lookup with default
+--------------------------------------------------          
+class HFLookupDefault l r d v | l r d -> v where
+  hfLookupDefault :: l -> r -> d -> v
   
 instance (RecordLabels r ls
-         ,HOccursNot l ls
-         ,HExtend (LVPair l v) r r'
-         ) => AddLabel l v r r' where
-  addLabel l v r = (LVPair v) .*. r
+         ,OccursP l ls occP
+         ,HFLookupDefault' occP l r d v 
+         ) => HFLookupDefault l r d v where
+  hfLookupDefault = hfLookupDefault' (undefined::occP)
   
-class UpdateLabel l v r r' | l v r -> r' where
-  updateLabel :: l -> v -> r -> r'
+class HFLookupDefault' occP l r d v | occP l r d -> v where
+  hfLookupDefault' :: occP -> l -> r -> d -> v
   
-instance (UpdateLabel l v r r'
-         ,HRLabelSet r'
-         ) => UpdateLabel l v (Record r) (Record r') where
-  updateLabel _ v (Record r) = mkRecord $ updateLabel (undefined::l) v r
-
-instance (HEq l l' f
-         ,UpdateLabel' f l v (HCons (LVPair l' v') r) r'
-         ) => UpdateLabel l v (HCons (LVPair l' v') r) r' where
-  updateLabel = updateLabel' (undefined::f)
-
-class UpdateLabel' eq l v r r' | eq l v r -> r' where
-  updateLabel' :: eq -> l -> v -> r -> r'
-
-instance UpdateLabel' HTrue l v (HCons (LVPair l v') r) (HCons (LVPair l v) r) where
-  updateLabel' _ _ v (HCons _ r) = HCons (LVPair v) r
-
-instance (UpdateLabel l v r r'
-         ) => UpdateLabel' HFalse l v (HCons p r) (HCons p r') where
-  updateLabel' _ _ v (HCons p r) = HCons p $ updateLabel (undefined::l) v r
-
-class AddField l v r r' | l v r -> r' where
-  addField :: l -> v -> r -> r'
+-- |Label does not occur.  Use default
+instance HFLookupDefault' HFalse l r d d where
+  hfLookupDefault' _ _ _ d = d
   
-instance (AddField (Label l) v r r'
-         ,HRLabelSet r'
-         ) => AddField (Label l) v (Record r) (Record r') where
-  addField l v (Record r) = mkRecord $ addField l v r
-  
-instance (AddNestedField l v r r'
-         ,HRLabelSet r'
-         ) => AddField (NestLabels l) v (Record r) (Record r') where
-  addField (NestLabels ls) v (Record r) = mkRecord $ addNestedField ls v r
+-- |Label does occur.  Lookup  
+instance (HFLookup l r v
+         ) => HFLookupDefault' HTrue l r d v where
+  hfLookupDefault' _ l r _ = hfLookup l r
 
-instance AddField (Label l) v HNil (HCons (LVPair (Label l) v) HNil) where
-  addField l v _ = HCons (LVPair v) HNil
-  
-instance (HOccursNot (Label f) fs
-         ,RecordLabels (HCons e l) fs
-         ) => AddField (Label f) v (HCons e l) (HCons (LVPair (Label f) v) (HCons e l)) where
-  addField l v r = HCons (LVPair v) r
+--------------------------------------------------          
+-- Assign
+--------------------------------------------------                  
+class HFAssign l v r r' | l v r -> r' where
+  hfAssign :: l -> v -> r -> r'
 
-class AddNestedField ls v l l' | ls v l -> l' where
-  addNestedField :: ls -> v -> l -> l'
-
-instance (AddField f v l l'
-         ) => AddNestedField (HCons f HNil) v l l' where
-  addNestedField (HCons f HNil) = addField f
+-- |Assign Label
+instance (RecordLabels r ls
+         ,OccursP (Label l) ls occP
+         ,HFAssign' occP (Label l) v r r'
+         ) => HFAssign (Label l) v r r' where
+  hfAssign l v r = hfAssign' (undefined::occP) l v r
   
-instance (RecordLabels outer outerLs
-         ,OccursP l outerLs occ
-         ,AddNestedField' occ (HCons l ls) v outer outer' 
-         ) => AddNestedField (HCons l ls) v outer outer' where
-  addNestedField = addNestedField' (undefined::occ)
-
-class AddNestedField' occ ls v outer outer' where
-  addNestedField' :: occ -> ls -> v -> outer -> outer'
+-- |Assign NestLabel base case  
+instance HFAssign (NestedLabel HNil) v r v where
+  hfAssign _ v _ = v
   
-instance (AddNestedField fs v inner inner'
-         ,AddOrUpdateLabel f inner' outer outer'
-         ,HLookup (Record outer) f inner
-         ,HRLabelSet outer
-         ) => AddNestedField' HTrue (HCons f fs) v outer outer' where
-  addNestedField' _ (HCons f fs) v outer 
-    = addOrUpdateLabel f inner' outer
-    where inner = hLookup (mkRecord outer) f
-          inner' = addNestedField fs v inner
+-- |Assign NestLabel recursive case
+instance (HFLookupDefault l r (Record HNil) inner
+         ,HFAssign (NestedLabel ls) v inner inner'
+         ,HFAssign l inner' r r'
+         ) => HFAssign (NestedLabel (HCons l ls)) v r r' where
+  hfAssign (NestedLabel (HCons l ls)) v r
+    = hfAssign l inner' r
+    where inner = hfLookupDefault l r emptyRecord
+          inner' = hfAssign (NestedLabel ls) v inner
+
+class HFAssign' occP l v r r' | occP l v r -> r' where
+  hfAssign' :: occP -> l -> v -> r -> r'
+  
+-- |Assign a new field
+instance (HExtend (LVPair l v) r r'
+         ) => HFAssign' HFalse l v r r' where
+  hfAssign' _ l v r = (LVPair v) .*. r
+  
+-- |Update a field
+instance (RecordLabels r ls
+         ,HFind l ls n
+         ,HUpdateAtHNat n (LVPair l v) r r'
+         ) => HFAssign' HTrue l v (Record r) (Record r') where
+  hfAssign' _ = hUpdateAtLabel 
+
+--------------------------------------------------
+-- |Modify
+--------------------------------------------------  
+class HFModify l v v' r r' | l v v' r -> r' where
+  hfModify :: l -> (v -> v') -> r -> r'
+  
+-- |Modify Label
+instance (HFLookup l r v1
+         ,HFAssign l v1' r r'
+         ,v ~ v1
+         ,v' ~ v1'
+         ) => HFModify l v v' r r' where
+  hfModify l f r 
+    = hfAssign l v' r
+    where v = hfLookup l r
+          v' = f v
+
+--------------------------------------------------
+-- |Update
+--------------------------------------------------
+data HFUpdateT
+
+class HFUpdate r1 r2 r3 | r1 r2 -> r3 where
+  hfUpdate :: r1 -> r2 -> r3  
+  
+instance (HFFold HFUpdateT r1 r2 r3
+         ) => HFUpdate r1 r2 r3 where
+  hfUpdate = hfFold (undefined::HFUpdateT)
+
+instance (HFAssign l v s s'
+         ) => HFFoldStep HFUpdateT s (LVPair l v) s' where
+  hfFoldStep _ r (LVPair v) = hfAssign (undefined::l) v r
           
-instance (AddOrUpdateLabel f inner outer outer'
-         ,AddNestedField fs v EmptyRecord inner
-         ) => AddNestedField' HFalse (HCons f fs) v outer outer' where
-  addNestedField' _ (HCons f fs) v outer
-    = addOrUpdateLabel f inner outer
-    where inner = addNestedField fs v emptyRecord
+--------------------------------------------------          
+-- |Union:  safe update; label collisions cause error
+--------------------------------------------------          
+data HFUnionT
 
-class OccursP x xs occ | x xs -> occ
-instance OccursP x HNil HFalse
-instance (HEq x x' eq
-         ,OccursP' eq x xs occ
-         ) => OccursP x (HCons x' xs) occ
+class HFUnion r1 r2 r3 | r1 r2 -> r3 where
+  hfUnion :: r1 -> r2 -> r3
+  
+instance (HFFold HFUnionT r1 r2 r3
+         ) => HFUnion r1 r2 r3 where
+  hfUnion = hfFold (undefined::HFUnionT)
 
-class OccursP' eq x xs occ | eq x xs -> occ
-instance OccursP' HTrue x xs HTrue
-instance (OccursP x xs occ) => OccursP' HFalse x xs occ 
+instance (HExtend e s s'
+         ) => HFFoldStep HFUnionT s e s' where
+  hfFoldStep _ s e = e .*. s
 
-{-
-class MakeField f v r | f v -> r where
-  makeField :: f -> v -> r 
-  
-instance MakeField (Label l) v (LVPair (Label l) v) where
-  makeField _ v = LVPair v
-  
-instance (MakeField (NestLabels ls) v r
-         ) => MakeField (NestLabels (HCons l ls)) v (LVPair l (Record (HCons r HNil))) where
-  makeField (NestLabels (HCons l ls)) v = LVPair . mkRecord $ HCons (makeField (NestLabels ls) v) HNil
--}
+--------------------------------------------------
+-- |Fold:  update/union implementation
+--------------------------------------------------
+class HFFold m s es s' | m s es -> s' where
+  hfFold :: m -> s -> es -> s'
 
-class HProjectByFields fs r r' | fs r -> r' where
-  hProjectByFields :: fs -> r -> r'
+class HFFoldStep m s e s' | m s e -> s' where
+  hfFoldStep :: m -> s -> e -> s'
   
-instance (HProjectByFields' fs src EmptyRecord out  
-         ) => HProjectByFields fs src out where
-  hProjectByFields fs src = hProjectByFields' fs src emptyRecord
+instance HFFold m s HNil s where
+  hfFold _ s _ = s
   
-class HProjectByFields' fs src dest dest' | fs src dest -> dest' where
-  hProjectByFields' :: fs -> src -> dest -> dest'
+instance (HFFold m s es s'
+         ) => HFFold m s (Record es) s' where
+  hfFold m s (Record es) = hfFold m s es
   
-instance HProjectByFields' HNil src dest dest  where
-  hProjectByFields' _ _ dest = dest
+instance (HFFold m s es s'
+         ,HFFoldStep m s' e s''
+         ) => HFFold m s (HCons e es) s'' where
+  hfFold m s (HCons e es) 
+    = hfFoldStep m s' e
+    where s' = hfFold m s es
+          
+--------------------------------------------------
+-- |Apply and Project
+--------------------------------------------------
+class HFApplyAndProject r f t | r f -> t where
+  hfApplyAndProject :: r -> f -> t
   
-instance (HProjectByFields' fs src dest dest'
-         ,HLookup src f v
-         ,AddField f v dest' dest''
-         ) => HProjectByFields' (HCons f fs) src dest dest'' where
-  hProjectByFields' (HCons f fs) src dest
-    = addField f v dest'
-    where dest' = hProjectByFields' fs src dest
-          v = hLookup src f
+instance (HFApplyAll f r r'
+         ,HFLabels f ls
+         ,HFProject ls r' t
+         ) => HFApplyAndProject r f t where
+  hfApplyAndProject r f 
+    = let r2 = hfApplyAll f r
+          ls = hfLabels f
+      in hfProject ls r2
+
+--------------------------------------------------
+-- |Get the labels from an HF operation
+--------------------------------------------------
+class HFLabels f ls | f -> ls where
+  hfLabels :: f -> ls
+  
+instance (IsTuple f tupP
+         ,HFLabels' tupP f ls
+         ) => HFLabels f ls where
+  hfLabels = hfLabels' (undefined::tupP)
+  
+class HFLabels' tupP f ls | tupP f -> ls where
+  hfLabels' :: tupP -> f -> ls
+  
+-- |Tuple case: convert to HList
+instance (Untuple f fs'
+         ,HFLabels fs' ls
+         ) => HFLabels' HTrue f ls where
+  hfLabels' _ f = hfLabels $ untuple f
+  
+-- |HList base case  
+instance HFLabels' HFalse HNil HNil where
+  hfLabels' _ _ = HNil
+  
+-- |HList recursive case
+instance (HFLabels f ls
+         ,HFLabels fs ls'
+         ,HAppend ls ls' ls''
+         ) => HFLabels' HFalse (HCons f fs) ls'' where
+  hfLabels' _ (HCons f fs) 
+    = let ls = hfLabels f
+          ls' = hfLabels fs
+      in hAppend ls ls'
+      
+instance HFLabels' HFalse (Label l) (HCons (Label l) HNil) where
+  hfLabels' _ l = l .*. HNil
+  
+instance HFLabels' HFalse (NestedLabel ls) (HCons (NestedLabel ls) HNil) where
+  hfLabels' _ ls = ls .*. HNil
+  
+instance HFLabels' HFalse (HFAssignT l v) (HCons l HNil) where
+  hfLabels' _ (HFAssignT l _) = l .*. HNil
+  
+instance HFLabels' HFalse (HFModifyT l f) (HCons l HNil) where
+  hfLabels' _ (HFModifyT l _) = l .*. HNil
+  
+-- |Single element default: recurse
+instance (HFLabels f ls
+         ) => HFLabels' HFalse f ls where
+  hfLabels' _ f 
+    = hfLabels f
+
+--------------------------------------------------
+-- |Project labels into a tuple
+--------------------------------------------------
+class HFProject ls r t | ls r -> t where
+  hfProject :: ls -> r -> t
+  
+instance (HFProject' ls r vs
+         ,Tuple vs t
+         ) => HFProject ls r t where
+  hfProject ls r = tuple $ hfProject' ls r
+  
+class HFProject' ls r vs | ls r -> vs where
+  hfProject' :: ls -> r -> vs
+  
+instance HFProject' HNil r HNil where
+  hfProject' _ _ = HNil
+  
+instance (HFLookup l r v
+         ,HFProject' ls r vs
+         ,HExtend v vs vs'
+         ) => HFProject' (HCons l ls) r vs' where
+  hfProject' (HCons l ls) r 
+    = let v = hfLookup l r
+          vs = hfProject' ls r 
+      in v .*. vs
+

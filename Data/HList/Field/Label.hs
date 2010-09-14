@@ -1,4 +1,9 @@
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell
+           , ScopedTypeVariables 
+           , FlexibleInstances
+           , FlexibleContexts
+           #-}
+
 module Data.HList.Field.Label where
 import Data.HList
 import Data.Char
@@ -10,7 +15,7 @@ import Data.Char
 -- import qualified Data.HList.Label as L
 -- myLabel = Label (L.m .*. L.y .*. L.L .*. L.a .*. L.b .*. L.e .*. L.l .*. HNil)
 -- 
--- [$label| myLabel |]
+-- ($label "myLabel")
 
 newtype Label a = Label a
 
@@ -19,6 +24,19 @@ instance (ToStr l) => Show (Label l) where
 
 instance (ToStr l) => ShowLabel (Label l) where
   showLabel _ = toStr (undefined::l)
+
+newtype NestedLabel a = NestedLabel a
+
+instance Show (NestedLabel HNil) where
+  show _ = ""
+
+instance (Show l
+         ,Show (NestedLabel ls)
+         ) => Show (NestedLabel (HCons l ls)) where
+  show (NestedLabel (HCons l ls))
+    = case show (NestedLabel ls) of
+        "" -> show l
+        x  -> show l ++ "." ++ x
 
 newtype Lower a = Lower a
 
