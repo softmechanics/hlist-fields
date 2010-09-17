@@ -32,6 +32,21 @@ mkHListT (c:cs) =
   where c' = charToType c
         cs' = mkHListT cs
 
+hasFields :: String -> [(String, TypeQ)] -> Q [Dec]
+hasFields cls fields
+  = sequence [c, i]
+  where c = classD preds clsName [t] [] []
+        i = instanceD preds (appT (conT clsName) (varT $ mkName "t")) []
+        preds = sequence $ map mkFieldPred fields
+        t = PlainTV $ mkName "t"
+        clsName = mkName cls
+        
+mkFieldPred :: (String, TypeQ) -> Q Pred        
+mkFieldPred (name, tyQ)
+  = classP hasField [labelT name, t, tyQ]
+  where hasField = mkName "HasField"
+        t = varT $ mkName "t"
+
 charToType c | isLower c = appT [t| L.Lower |] (charToType $ toUpper c)
 
 charToType 'A' = [t| L.A |]
@@ -75,35 +90,6 @@ charToType '9' = [t| L.D9 |]
 charToType '_' = [t| L.Underscore |]
 
 charToExp c | isLower c = appE [| L.Lower |] (charToExp $ toUpper c)
-
-{-
-charToExp 'a' = [| L.a |]
-charToExp 'b' = [| L.b |]
-charToExp 'c' = [| L.c |]
-charToExp 'd' = [| L.d |]
-charToExp 'e' = [| L.e |]
-charToExp 'f' = [| L.f |]
-charToExp 'g' = [| L.g |]
-charToExp 'h' = [| L.h |]
-charToExp 'i' = [| L.i |]
-charToExp 'j' = [| L.j |]
-charToExp 'k' = [| L.k |]
-charToExp 'l' = [| L.l |]
-charToExp 'm' = [| L.m |]
-charToExp 'n' = [| L.n |]
-charToExp 'o' = [| L.o |]
-charToExp 'p' = [| L.p |]
-charToExp 'q' = [| L.q |]
-charToExp 'r' = [| L.r |]
-charToExp 's' = [| L.s |]
-charToExp 't' = [| L.t |]
-charToExp 'u' = [| L.u |]
-charToExp 'v' = [| L.v |]
-charToExp 'w' = [| L.w |]
-charToExp 'x' = [| L.x |]
-charToExp 'y' = [| L.y |]
-charToExp 'z' = [| L.z |]
--}
 
 charToExp 'A' = [| L.A |]
 charToExp 'B' = [| L.B |]
