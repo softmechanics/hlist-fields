@@ -1,11 +1,13 @@
-{-# LANGUAGE TemplateHaskell, FlexibleContexts, FlexibleInstances, UndecidableInstances, MultiParamTypeClasses #-}
-import Data.HList.Field.Base
-import Data.HList.Field.Label
+{-# LANGUAGE TemplateHaskell
+           , FlexibleContexts
+           , FlexibleInstances
+           , UndecidableInstances
+           , MultiParamTypeClasses 
+           #-}
+
+import Data.HList.Field
 import Data.HList.Field.TH
-import Data.HList.Field.Schema
-import Data.HList.Tuple
-import Data.HList.Record (emptyRecord)
-import Data.HList hiding ((#), TypeEq(..), tuple)
+import Data.HList (HNil, HasField(..), emptyRecord)
 
 $(mkLabel "name")
 $(mkLabel "age")
